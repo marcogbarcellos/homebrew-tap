@@ -1,13 +1,13 @@
 cask "pgstudio" do
-  version "0.1.0"
+  version "0.2.0"
 
   on_arm do
-    sha256 "91e50e0d206146146fd625dd6621bcfdd9c0d4d7997c1cdc5cb53219dde5aad7"
+    sha256 "a0aecd80fcb03480f09bc02d222a0ca30d0dd0789e54f443df06a55d8e4c88c4"
     url "https://github.com/marcogbarcellos/pgstudio/releases/download/v#{version}/PgStudio_v#{version}_aarch64.dmg"
   end
 
   on_intel do
-    sha256 "fb862d7f39a3aceca96e82e0cf3db6d7327e6c3516287e5e08012647fb5a10cc"
+    sha256 "da72e83d0d0d9ec1d5da5d021933d1dffc06fa2369dceda4853e193cacba43c5"
     url "https://github.com/marcogbarcellos/pgstudio/releases/download/v#{version}/PgStudio_v#{version}_x86_64.dmg"
   end
 
