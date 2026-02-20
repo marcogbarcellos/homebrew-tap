@@ -1,0 +1,81 @@
+name: Update Cask
+
+on:
+  repository_dispatch:
+    types: [update-cask]
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get release info
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ github.event.client_payload.version }}
+          REPO: ${{ github.event.client_payload.repo }}
+        run: |
+          # Strip 'v' prefix for cask version
+          CLEAN_VERSION="${VERSION#v}"
+          echo "version=$CLEAN_VERSION" >> "$GITHUB_OUTPUT"
+
+          # Download DMGs and compute SHA256
+          ARM_URL="https://github.com/${REPO}/releases/download/${VERSION}/PgStudio_${VERSION}_aarch64.dmg"
+          X86_URL="https://github.com/${REPO}/releases/download/${VERSION}/PgStudio_${VERSION}_x86_64.dmg"
+
+          curl -sL "$ARM_URL" -o arm.dmg
+          curl -sL "$X86_URL" -o x86.dmg
+
+          echo "sha_arm=$(shasum -a 256 arm.dmg | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
+          echo "sha_x86=$(shasum -a 256 x86.dmg | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
+
+          # Extract owner from repo (owner/name)
+          echo "owner=${REPO%%/*}" >> "$GITHUB_OUTPUT"
+
+      - name: Update cask formula
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          SHA_ARM: ${{ steps.release.outputs.sha_arm }}
+          SHA_X86: ${{ steps.release.outputs.sha_x86 }}
+          OWNER: ${{ steps.release.outputs.owner }}
+        run: |
+          cat > Casks/pgstudio.rb << CASK
+          cask "pgstudio" do
+            version "$VERSION"
+
+            on_arm do
+              sha256 "$SHA_ARM"
+              url "https://github.com/${OWNER}/pgstudio/releases/download/v#{version}/PgStudio_v#{version}_aarch64.dmg"
+            end
+
+            on_intel do
+              sha256 "$SHA_X86"
+              url "https://github.com/${OWNER}/pgstudio/releases/download/v#{version}/PgStudio_v#{version}_x86_64.dmg"
+            end
+
+            name "PgStudio"
+            desc "AI-native PostgreSQL desktop client"
+            homepage "https://github.com/${OWNER}/pgstudio"
+
+            app "PgStudio.app"
+
+            zap trash: [
+              "~/Library/Application Support/com.pgstudio.app",
+              "~/Library/Caches/com.pgstudio.app",
+              "~/Library/Preferences/com.pgstudio.app.plist",
+            ]
+          end
+          CASK
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/pgstudio.rb
+          git commit -m "Update pgstudio to ${{ steps.release.outputs.version }}"
+          git push
